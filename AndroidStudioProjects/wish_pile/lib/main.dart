@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:share/share.dart';
 
 void main() => runApp(new MaterialApp(home: new MyApp()));
 
@@ -44,8 +45,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Color _tileColor = Colors.white;
 
+
   Future<Null> removeItem(int index) async {
     setState(() => _savedItems.removeAt(index));
+  }
+
+  Future<Null> addItem() async {
+    setState(() {
+      _savedItems.add(_itemInput.text);
+      _amounts[_itemInput.text] = _amountInput.text;
+    });
   }
 
   @override
@@ -75,23 +84,71 @@ class _MyHomePageState extends State<MyHomePage> {
             new ListTile(
               leading: new Icon(Icons.share),
               title: new Text("Share"),
+              onTap: () {
+                share('check out my website https://example.com');
+              },
             ),
 
           ],
         ),
       ),
 
+      //Generate the body
       body: buildWishPileItem,
 
+      //FAB
       floatingActionButton: new FloatingActionButton(
         onPressed: () {
-          _addItemScene(context);
+          Navigator.of(context).push(
+            new MaterialPageRoute(
+              builder: (context) {
+                return new Scaffold(
+                  appBar: new AppBar(
+                    title: new Text('Add an item'),
+                  ),
+                  body: new ListView(
+                    children: <Widget>[
+                      new TextFormField(
+                        controller: _itemInput,
+                        decoration: new InputDecoration(
+                          hintText: 'Enter the item',
+                        ),
+                        keyboardType: TextInputType.text,
+                      ),
+                      new TextFormField(
+                        controller: _amountInput,
+                        decoration: new InputDecoration(
+                          hintText: 'Enter the amount',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                      new Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: <Widget>[
+                          new IconButton(icon: new Icon(Icons.arrow_back),
+                              onPressed: () =>
+                                  Navigator.pop(context, true)),
+                          new IconButton(
+                              icon: new Icon(Icons.add), onPressed: () {
+                            if (_itemInput.text.length > 0) {
+                              addItem();
+                              Navigator.pop(context, "Add");
+                            }
+                          })
+                        ],),
+                    ],
+                  ),
+                );
+              },
+            ),
+          );
         },
         tooltip: 'Add an item',
         child: new Icon(Icons.add),
       ),
     );
   }
+
 
   // Build the wish pile tiles.
   ListView get buildWishPileItem {
@@ -116,65 +173,23 @@ class _MyHomePageState extends State<MyHomePage> {
   //Generates the tile
   ExpansionTile buildExpansionTile(String item, int index) {
     return new ExpansionTile(
-          backgroundColor: _tileColor,
-          title: new Text('$item'),
-          trailing: new Text(_amounts['$item']),
+      backgroundColor: _tileColor,
+      title: new Text('$item'),
+      trailing: new Text(_amounts['$item']),
+      children: <Widget>[
+        new Row (
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: <Widget>[
-            new Row (
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: <Widget>[
-                new IconButton(icon: new Icon(Icons.edit), onPressed: () {
-                  //edit item
-                }),
-                new IconButton(
-                    icon: new Icon(Icons.delete), onPressed: () {
-                  removeItem(index);
-                }),
-              ],
-            )
+            new IconButton(icon: new Icon(Icons.edit), onPressed: () {
+              //edit item
+            }),
+            new IconButton(
+                icon: new Icon(Icons.delete), onPressed: () {
+              removeItem(index);
+            }),
           ],
-        );
+        )
+      ],
+    );
   }
-}
-
-//FAB functionality to add items.
-void _addItemScene(BuildContext context) {
-  Navigator.of(context).push(
-    new MaterialPageRoute(
-      builder: (context) {
-        return new Scaffold(
-          appBar: new AppBar(
-            title: new Text('Add an item'),
-          ),
-          body: new ListView(
-            children: <Widget>[
-              new TextFormField(
-                controller: _itemInput,
-                decoration: new InputDecoration(
-                  hintText: 'Enter the item',
-                ),
-                keyboardType: TextInputType.text,
-              ),
-              new TextFormField(
-                controller: _amountInput,
-                decoration: new InputDecoration(
-                  hintText: 'Enter the amount',
-                ),
-                keyboardType: TextInputType.number,
-              ),
-              new RaisedButton(
-                  highlightColor: Colors.pink,
-                  onPressed: () {
-                    if (_itemInput.text.length > 0) {
-                      _savedItems.add(_itemInput.text);
-                      _amounts[_itemInput.text] = _amountInput.text;
-                      Navigator.pop(context);
-                    }
-                  })
-            ],
-          ),
-        );
-      },
-    ),
-  );
 }

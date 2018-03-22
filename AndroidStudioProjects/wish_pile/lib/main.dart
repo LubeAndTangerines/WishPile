@@ -2,18 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:share/share.dart';
+import 'dart:io';
+import 'dart:convert';
 
 void main() => runApp(new MaterialApp(home: new MyApp()));
 
-List<String> _savedItems = ["Kana", "Muna", "Koeratoit"];
+
+//Global variables
+List<String> _savedItems = [];
 List<String> _gottenNames = ["Piim", "Leib", "Sink"];
 List<String> _savedWishpiles = ["Töö", "Kodu"];
-Map<String, String> _amounts = {"Kana": "1", "Muna": "12", "Koeratoit": "2"};
+Map<String, String> _amounts = {};
 
 final TextEditingController _itemInput = new TextEditingController();
 final TextEditingController _amountInput = new TextEditingController();
 
-
+//Main activator
 class MyApp extends StatelessWidget {
 
   @override
@@ -28,6 +32,7 @@ class MyApp extends StatelessWidget {
   }
 }
 
+//Home page widget
 class MyHomePage extends StatefulWidget {
 
   MyHomePage({Key key, this.title}) : super(key: key);
@@ -37,6 +42,7 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => new _MyHomePageState();
 }
 
+//This has conent
 class _MyHomePageState extends State<MyHomePage> {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
@@ -45,11 +51,20 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Color _tileColor = Colors.white;
 
-
+  //Removes items with sync
   Future<Null> removeItem(int index) async {
     setState(() => _savedItems.removeAt(index));
   }
 
+  //Adds items from API with sync
+  Future<Null> addItemAPI(String name, int amount) async {
+    setState(() {
+      _savedItems.add(name);
+      _amounts[name] = amount.toString();
+    });
+  }
+
+  //Adds items in an sync way
   Future<Null> addItem() async {
     setState(() {
       _savedItems.add(_itemInput.text);
@@ -57,10 +72,15 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  int _reload = 0;
+
   @override
   Widget build(BuildContext context) {
+    if (_reload == 0) {
+      getDataFromAPI();
+      _reload++;
+    }
     return new Scaffold(
-
       key: _scaffoldKey,
       appBar: new AppBar(
         title: new Text("WishPile App"),
@@ -71,26 +91,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
       drawer: new Drawer(
         key: _drawerKey,
-        child: new ListView(
-          children: <Widget>[
-
-            new IconButton(icon: new Icon(Icons.arrow_back), onPressed: () {
-              Navigator.of(context).pop();
-            }),
-            new ListTile(
-                leading: new Icon(Icons.settings),
-                title: new Text("Settings")
-            ),
-            new ListTile(
-              leading: new Icon(Icons.share),
-              title: new Text("Share"),
-              onTap: () {
-                share('check out my website https://example.com');
-              },
-            ),
-
-          ],
-        ),
+        child: buildDrawerContent(context),
       ),
 
       //Generate the body
@@ -99,49 +100,8 @@ class _MyHomePageState extends State<MyHomePage> {
       //FAB
       floatingActionButton: new FloatingActionButton(
         onPressed: () {
-          Navigator.of(context).push(
-            new MaterialPageRoute(
-              builder: (context) {
-                return new Scaffold(
-                  appBar: new AppBar(
-                    title: new Text('Add an item'),
-                  ),
-                  body: new ListView(
-                    children: <Widget>[
-                      new TextFormField(
-                        controller: _itemInput,
-                        decoration: new InputDecoration(
-                          hintText: 'Enter the item',
-                        ),
-                        keyboardType: TextInputType.text,
-                      ),
-                      new TextFormField(
-                        controller: _amountInput,
-                        decoration: new InputDecoration(
-                          hintText: 'Enter the amount',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                      new Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: <Widget>[
-                          new IconButton(icon: new Icon(Icons.arrow_back),
-                              onPressed: () =>
-                                  Navigator.pop(context, true)),
-                          new IconButton(
-                              icon: new Icon(Icons.add), onPressed: () {
-                            if (_itemInput.text.length > 0) {
-                              addItem();
-                              Navigator.pop(context, "Add");
-                            }
-                          })
-                        ],),
-                    ],
-                  ),
-                );
-              },
-            ),
-          );
+          getDataFromAPI();
+          addItemsView(context);
         },
         tooltip: 'Add an item',
         child: new Icon(Icons.add),
@@ -149,6 +109,75 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  ListView buildDrawerContent(BuildContext context) {
+    return new ListView(
+        children: <Widget>[
+
+          new IconButton(icon: new Icon(Icons.arrow_back), onPressed: () {
+            Navigator.of(context).pop();
+          }),
+          new ListTile(
+              leading: new Icon(Icons.settings),
+              title: new Text("Settings")
+          ),
+          new ListTile(
+            leading: new Icon(Icons.share),
+            title: new Text("Share"),
+            onTap: () {
+              share('check out my website https://example.com');
+            },
+          ),
+
+        ],
+      );
+  }
+
+  //FAB functionality
+  void addItemsView(BuildContext context) {
+    Navigator.of(context).push(
+      new MaterialPageRoute(
+        builder: (context) {
+          return new Scaffold(
+            appBar: new AppBar(
+              title: new Text('Add an item'),
+            ),
+            body: new ListView(
+              children: <Widget>[
+                new TextFormField(
+                  controller: _itemInput,
+                  decoration: new InputDecoration(
+                    hintText: 'Enter the item',
+                  ),
+                  keyboardType: TextInputType.text,
+                ),
+                new TextFormField(
+                  controller: _amountInput,
+                  decoration: new InputDecoration(
+                    hintText: 'Enter the amount',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                new Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    new IconButton(icon: new Icon(Icons.arrow_back),
+                        onPressed: () =>
+                            Navigator.pop(context, true)),
+                    new IconButton(
+                        icon: new Icon(Icons.add), onPressed: () {
+                      if (_itemInput.text.length > 0) {
+                        addItem();
+                        Navigator.pop(context, "Add");
+                      }
+                    })
+                  ],),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   // Build the wish pile tiles.
   ListView get buildWishPileItem {
@@ -192,4 +221,23 @@ class _MyHomePageState extends State<MyHomePage> {
       ],
     );
   }
+
+  //Read data from database and fill list with them
+  getDataFromAPI() async {
+    String id = "1";
+
+    var httpClient = new HttpClient();
+    var uri = new Uri.http(
+        '159.89.107.237:1337', '/api/v1/piles/' + id + '/wishes',
+        {'status': 'wished'});
+    var request = await httpClient.getUrl(uri);
+    var response = await request.close();
+    var responseBody = await response.transform(UTF8.decoder).join();
+    Map data = JSON.decode(responseBody);
+    for (int i = 0; i < data['data']['resultCount']; i++) {
+      addItemAPI(data['data']['result'][i]['wish'],
+          data['data']['result'][i]['amount']);
+    }
+  }
+
 }

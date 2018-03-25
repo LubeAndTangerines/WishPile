@@ -42,7 +42,7 @@ class MyHomePage extends StatefulWidget {
   _MyHomePageState createState() => new _MyHomePageState();
 }
 
-//This has conent
+//This has content
 class _MyHomePageState extends State<MyHomePage> {
 
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
@@ -57,7 +57,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   //Adds items from API with sync
-  Future<Null> addItemAPI(String name, int amount) async {
+  Future<Null> addItemAPI(String id, String name, String amount) async {
     setState(() {
       _savedItems.add(name);
       _amounts[name] = amount.toString();
@@ -67,9 +67,34 @@ class _MyHomePageState extends State<MyHomePage> {
   //Adds items in an sync way
   Future<Null> addItem() async {
     setState(() {
-      _savedItems.add(_itemInput.text);
-      _amounts[_itemInput.text] = _amountInput.text;
+      String id = "1";
+      if (sendData(id, _itemInput.text, _amountInput.text) != null) {
+        addItemAPI(id, _itemInput.text, _amountInput.text);
+      }
     });
+  }
+
+  //Future<HttpClientRequest> openUrl("POST", Uri url);
+
+  Future<bool> sendData(String id, String text, String amount) async {
+    String body = JSON.encode(
+        {"wishes": [{"description": text, "amount": amount}]});
+    var httpClient = new HttpClient();
+    var request = await httpClient.post(
+        '159.89.107.237', 1337, '/api/v1/piles/' + id + '/wishes'
+    );
+    request.headers.contentType =
+    new ContentType("application", "json", charset: "utf-8");
+    request.write(body);
+
+    var response = await request.close();
+    var responseBody = await response.transform(UTF8.decoder).join();
+    Map data = JSON.decode(responseBody);
+    if (data['status'] == 201) {
+      print("SUCCESS");
+      return true;
+    }
+    return false;
   }
 
   int _reload = 0;
@@ -100,7 +125,6 @@ class _MyHomePageState extends State<MyHomePage> {
       //FAB
       floatingActionButton: new FloatingActionButton(
         onPressed: () {
-          getDataFromAPI();
           addItemsView(context);
         },
         tooltip: 'Add an item',
@@ -111,25 +135,25 @@ class _MyHomePageState extends State<MyHomePage> {
 
   ListView buildDrawerContent(BuildContext context) {
     return new ListView(
-        children: <Widget>[
+      children: <Widget>[
 
-          new IconButton(icon: new Icon(Icons.arrow_back), onPressed: () {
-            Navigator.of(context).pop();
-          }),
-          new ListTile(
-              leading: new Icon(Icons.settings),
-              title: new Text("Settings")
-          ),
-          new ListTile(
-            leading: new Icon(Icons.share),
-            title: new Text("Share"),
-            onTap: () {
-              share('check out my website https://example.com');
-            },
-          ),
+        new IconButton(icon: new Icon(Icons.arrow_back), onPressed: () {
+          Navigator.of(context).pop();
+        }),
+        new ListTile(
+            leading: new Icon(Icons.settings),
+            title: new Text("Settings")
+        ),
+        new ListTile(
+          leading: new Icon(Icons.share),
+          title: new Text("Share"),
+          onTap: () {
+            share('check out my website https://example.com');
+          },
+        ),
 
-        ],
-      );
+      ],
+    );
   }
 
   //FAB functionality
@@ -143,31 +167,39 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             body: new ListView(
               children: <Widget>[
-                new TextFormField(
-                  controller: _itemInput,
-                  decoration: new InputDecoration(
-                    hintText: 'Enter the item',
-                  ),
-                  keyboardType: TextInputType.text,
-                ),
-                new TextFormField(
-                  controller: _amountInput,
-                  decoration: new InputDecoration(
-                    hintText: 'Enter the amount',
-                  ),
-                  keyboardType: TextInputType.number,
+                new Column(
+                    children: <Widget>[
+                      new TextFormField(
+                        controller: _itemInput,
+                        decoration: new InputDecoration(
+                          contentPadding: new EdgeInsets.fromLTRB(
+                              16.0, 150.0, 16.0, 16.0),
+                          hintText: 'Enter the item',
+                        ),
+                        keyboardType: TextInputType.text,
+                      ),
+                      new TextFormField(
+                        controller: _amountInput,
+                        decoration: new InputDecoration(
+                          contentPadding: new EdgeInsets.fromLTRB(
+                              16.0, 16.0, 16.0, 16.0),
+                          hintText: 'Enter the amount',
+                        ),
+                        keyboardType: TextInputType.number,
+                      ),
+                    ]
                 ),
                 new Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
                     new IconButton(icon: new Icon(Icons.arrow_back),
                         onPressed: () =>
-                            Navigator.pop(context, true)),
+                            Navigator.of(context).pop(false)),
                     new IconButton(
                         icon: new Icon(Icons.add), onPressed: () {
                       if (_itemInput.text.length > 0) {
                         addItem();
-                        Navigator.pop(context, "Add");
+                        Navigator.of(context).pop(true);
                       }
                     })
                   ],),
@@ -189,9 +221,31 @@ class _MyHomePageState extends State<MyHomePage> {
         return new Dismissible(
           key: new ObjectKey(item),
           onDismissed: (direction) {
-            _savedItems.removeAt(index);
+            String item = _savedItems.removeAt(index);
+            _gottenNames.add(item);
             Scaffold.of(context).showSnackBar(
                 new SnackBar(content: new Text("$item added to gotten pile")));
+          },
+          background: new Container(color: Colors.pink),
+          child: buildExpansionTile(item, index),
+        );
+      },);
+  }
+
+  // Build the gotten pile tiles.
+  ListView get buildGottenPileItem {
+    return new ListView.builder(
+      itemCount: _gottenNames != [] ? _gottenNames.length : 0.0,
+      padding: new EdgeInsets.symmetric(vertical: 16.0),
+      itemBuilder: (BuildContext context, int index) {
+        final item = _gottenNames[index];
+        return new Dismissible(
+          key: new ObjectKey(item),
+          onDismissed: (direction) {
+            String item = _gottenNames.removeAt(index);
+            _savedItems.add(item);
+            Scaffold.of(context).showSnackBar(
+                new SnackBar(content: new Text("$item added to wishes pile")));
           },
           background: new Container(color: Colors.pink),
           child: buildExpansionTile(item, index),
@@ -225,7 +279,6 @@ class _MyHomePageState extends State<MyHomePage> {
   //Read data from database and fill list with them
   getDataFromAPI() async {
     String id = "1";
-
     var httpClient = new HttpClient();
     var uri = new Uri.http(
         '159.89.107.237:1337', '/api/v1/piles/' + id + '/wishes',
@@ -234,10 +287,11 @@ class _MyHomePageState extends State<MyHomePage> {
     var response = await request.close();
     var responseBody = await response.transform(UTF8.decoder).join();
     Map data = JSON.decode(responseBody);
+    _savedItems = [];
+    _amounts = {};
     for (int i = 0; i < data['data']['resultCount']; i++) {
-      addItemAPI(data['data']['result'][i]['wish'],
-          data['data']['result'][i]['amount']);
+      addItemAPI(id, data['data']['result'][i]['wish'],
+          data['data']['result'][i]['amount'].toString());
     }
   }
-
 }

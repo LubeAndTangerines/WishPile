@@ -6,6 +6,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:wish_pile/decorations.dart';
+
 void main() => runApp(new MaterialApp(home: new MyApp()));
 
 //Global variables
@@ -380,28 +382,33 @@ class _MyHomePageState extends State<MyHomePage> {
         final wishID = _tempIDs[index];
         final wish = _wishes[wishID];
         if (_savedID.contains(wishID)) {
-          return new Dismissible(
-            key: new ObjectKey(
-                _wishes[wishID] + random.nextInt(10000).toString()),
-            onDismissed: (direction) {
-              updateItemLocation(wishID);
-              Scaffold.of(context).showSnackBar(new SnackBar(
-                  content: new Text("$wish added to gotten pile")));
-            },
-            background: new Container(color: Colors.pink),
-            child: buildExpansionTileForWishes(wishID, index),
+          return new Container(
+            child: new Dismissible(
+              key: new ObjectKey(
+                  _wishes[wishID] + random.nextInt(10000).toString()),
+              onDismissed: (direction) {
+                updateItemLocation(wishID);
+                Scaffold.of(context).showSnackBar(new SnackBar(
+                    content: new Text("$wish added to gotten pile")));
+              },
+              background: new Container(color: Colors.pink),
+              child: buildExpansionTileForWishes(wishID, index),
+            ),
           );
         } else {
-          return new Dismissible(
-            key: new ObjectKey(
-                _wishes[wishID] + random.nextInt(10000).toString()),
-            onDismissed: (direction) {
-              updateItemLocation(wishID);
-              Scaffold.of(context).showSnackBar(new SnackBar(
-                  content: new Text("$wish added to gotten pile")));
-            },
-            background: new Container(color: Colors.pink),
-            child: buildExpansionTileForWishes(wishID, index),
+          return new Container(
+            foregroundDecoration: new StrikeThroughDecoration(),
+            child: new Dismissible(
+              key: new ObjectKey(
+                  _wishes[wishID] + random.nextInt(10000).toString()),
+              onDismissed: (direction) {
+                updateItemLocation(wishID);
+                Scaffold.of(context).showSnackBar(new SnackBar(
+                    content: new Text("$wish added to gotten pile")));
+              },
+              background: new Container(color: Colors.pink),
+              child: buildExpansionTileForWishes(wishID, index),
+            ),
           );
         }
       },

@@ -4,11 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:share/share.dart';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:math';
 
 void main() => runApp(new MaterialApp(home: new MyApp()));
 
 //Global variables
 List<String> _savedWishpiles = ["Töö", "Kodu"];
+
+//Server IP
+//String _serverIP = '159.89.107.237:1337';
+String _localhost = "10.0.2.2:1337";
 
 List<String> _savedID = [];
 Map<String, String> _wishes = {};
@@ -16,13 +21,13 @@ Map<String, String> _amounts = {};
 
 List<String> _gottenID = [];
 List<String> _allIDs = [];
+List<String> _tempIDs = [];
 
 final TextEditingController _itemInput = new TextEditingController();
 final TextEditingController _amountInput = new TextEditingController();
 
 //Main activator
 class MyApp extends StatelessWidget {
-
   @override
   Widget build(BuildContext context) {
     return new MaterialApp(
@@ -37,7 +42,6 @@ class MyApp extends StatelessWidget {
 
 //Home page widget
 class MyHomePage extends StatefulWidget {
-
   MyHomePage({Key key, this.title}) : super(key: key);
   final String title;
 
@@ -47,10 +51,9 @@ class MyHomePage extends StatefulWidget {
 
 //This has content
 class _MyHomePageState extends State<MyHomePage> {
-
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
-  final GlobalKey<DrawerControllerState> _drawerKey = new GlobalKey<
-      DrawerControllerState>();
+  final GlobalKey<DrawerControllerState> _drawerKey =
+      new GlobalKey<DrawerControllerState>();
 
   Color _tileColor = Colors.white;
 
@@ -58,10 +61,14 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       if (_savedID.contains(wishID)) {
         _savedID.remove(wishID);
+        updateData(wishID, "checked");
         _gottenID.add(wishID);
+        buildAllItems;
       } else {
         _gottenID.remove(wishID);
+        updateData(wishID, "wished");
         _savedID.add(wishID);
+        buildAllItems;
       }
     });
   }
@@ -69,25 +76,44 @@ class _MyHomePageState extends State<MyHomePage> {
   //Deleting items aka adding to archive
   Future<bool> updateData(String wishID, String method) async {
     String id = "1";
-    print(wishID);
-    String body = JSON.encode(
-        {
-          "updateField": "status",
-          "wishes":
-          [{ "id": int.parse(wishID), "status": method}]
-        });
-    print(body);
+    String body = json.encode({
+      "updateField": "status",
+      "wishes": [
+        {"id": int.parse(wishID), "status": method}
+      ]
+    });
     var httpClient = new HttpClient();
     var request = await httpClient.patch(
-        '159.89.107.237', 1337, '/api/v1/piles/' + id + '/wishes'
-    );
+        '10.0.2.2', 1337, '/api/v1/piles/' + id + '/wishes');
     request.headers.contentType =
-    new ContentType("application", "json", charset: "utf-8");
+        new ContentType("application", "json", charset: "utf-8");
     request.write(body);
 
     var response = await request.close();
-    var responseBody = await response.transform(UTF8.decoder).join();
-    print(responseBody);
+    var responseBody = await response.transform(utf8.decoder).join();
+
+    return true;
+  }
+
+  //Editing wish description
+  Future<bool> updateDescription(
+      String wishID, String method, String newText) async {
+    String id = "1";
+    String body = json.encode({
+      "updateField": method,
+      "wishes": [
+        {"id": int.parse(wishID), method: newText}
+      ]
+    });
+    var httpClient = new HttpClient();
+    var request = await httpClient.patch(
+        '10.0.2.2', 1337, '/api/v1/piles/' + id + '/wishes');
+    request.headers.contentType =
+        new ContentType("application", "json", charset: "utf-8");
+    request.write(body);
+
+    var response = await request.close();
+    var responseBody = await response.transform(utf8.decoder).join();
 
     return true;
   }
@@ -102,8 +128,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   //Adds items from API with sync
-  Future<Null> addItemAPI(String pileID, String wishID, String name,
-      String amount) async {
+  Future<Null> addItemAPI(
+      String pileID, String wishID, String name, String amount) async {
     setState(() {
       _savedID.add(wishID);
       _allIDs.add(wishID);
@@ -122,22 +148,24 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  //Adds item to the database
   Future<bool> sendData(String id, String text, String amount) async {
-    String body = JSON.encode(
-        {"wishes": [{"description": text, "amount": amount}]});
+    String body = json.encode({
+      "wishes": [
+        {"description": text, "amount": amount}
+      ]
+    });
     var httpClient = new HttpClient();
     var request = await httpClient.post(
-        '159.89.107.237', 1337, '/api/v1/piles/' + id + '/wishes'
-    );
+        '10.0.2.2', 1337, '/api/v1/piles/' + id + '/wishes');
     request.headers.contentType =
-    new ContentType("application", "json", charset: "utf-8");
+        new ContentType("application", "json", charset: "utf-8");
     request.write(body);
 
     var response = await request.close();
-    var responseBody = await response.transform(UTF8.decoder).join();
-    Map data = JSON.decode(responseBody);
+    var responseBody = await response.transform(utf8.decoder).join();
+    Map data = json.decode(responseBody);
     if (data['status'] == 201) {
-      print("SUCCESS");
       return true;
     }
     return false;
@@ -155,9 +183,12 @@ class _MyHomePageState extends State<MyHomePage> {
       key: _scaffoldKey,
       appBar: new AppBar(
         title: new Text("WishPile App"),
-        leading: new IconButton(icon: new Icon(Icons.list), onPressed: () {
-          _scaffoldKey.currentState.openDrawer();
-        },),
+        leading: new IconButton(
+          icon: new Icon(Icons.list),
+          onPressed: () {
+            _scaffoldKey.currentState.openDrawer();
+          },
+        ),
       ),
 
       drawer: new Drawer(
@@ -182,14 +213,15 @@ class _MyHomePageState extends State<MyHomePage> {
   ListView buildDrawerContent(BuildContext context) {
     return new ListView(
       children: <Widget>[
-
-        new IconButton(icon: new Icon(Icons.arrow_back), onPressed: () {
-          Navigator.of(context).pop();
-        }),
+        new IconButton(
+            icon: new Icon(Icons.arrow_back),
+            onPressed: () {
+              Navigator.of(context).pop();
+            }),
+        new Text("Home"),
+        new Divider(),
         new ListTile(
-            leading: new Icon(Icons.settings),
-            title: new Text("Settings")
-        ),
+            leading: new Icon(Icons.settings), title: new Text("Settings")),
         new ListTile(
           leading: new Icon(Icons.share),
           title: new Text("Share"),
@@ -197,7 +229,22 @@ class _MyHomePageState extends State<MyHomePage> {
             share('check out my website https://example.com');
           },
         ),
-
+        new Divider(),
+        new Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: <Widget>[
+            new Text("Your piles"),
+            new IconButton(icon: new Icon(Icons.add), onPressed: null),
+          ],
+        ),
+        new ListTile(
+          leading: new Icon(Icons.view_list),
+          title: new Text("Home"),
+        ),
+        new ListTile(
+          leading: new Icon(Icons.view_list),
+          title: new Text("Work"),
+        )
       ],
     );
   }
@@ -213,42 +260,107 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             body: new ListView(
               children: <Widget>[
-                new Column(
-                    children: <Widget>[
-                      new TextFormField(
-                        controller: _itemInput,
-                        decoration: new InputDecoration(
-                          contentPadding: new EdgeInsets.fromLTRB(
-                              16.0, 150.0, 16.0, 16.0),
-                          hintText: 'Enter the item',
-                        ),
-                        keyboardType: TextInputType.text,
-                      ),
-                      new TextFormField(
-                        controller: _amountInput,
-                        decoration: new InputDecoration(
-                          contentPadding: new EdgeInsets.fromLTRB(
-                              16.0, 16.0, 16.0, 16.0),
-                          hintText: 'Enter the amount',
-                        ),
-                        keyboardType: TextInputType.number,
-                      ),
-                    ]
-                ),
+                new Column(children: <Widget>[
+                  new TextFormField(
+                    controller: _itemInput,
+                    decoration: new InputDecoration(
+                      contentPadding:
+                          new EdgeInsets.fromLTRB(16.0, 150.0, 16.0, 16.0),
+                      hintText: 'Enter the item',
+                    ),
+                    keyboardType: TextInputType.text,
+                  ),
+                  new TextFormField(
+                    controller: _amountInput,
+                    decoration: new InputDecoration(
+                      contentPadding:
+                          new EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+                      hintText: 'Enter the amount',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ]),
                 new Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: <Widget>[
-                    new IconButton(icon: new Icon(Icons.arrow_back),
-                        onPressed: () =>
-                            Navigator.of(context).pop(false)),
                     new IconButton(
-                        icon: new Icon(Icons.add), onPressed: () {
-                      if (_itemInput.text.length > 0) {
-                        addItem();
-                        Navigator.of(context).pop(true);
-                      }
-                    })
-                  ],),
+                        icon: new Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.of(context).pop(false)),
+                    new IconButton(
+                        icon: new Icon(Icons.add),
+                        onPressed: () {
+                          if (_itemInput.text.length > 0) {
+                            addItem();
+                            Navigator.of(context).pop(true);
+                          }
+                        })
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void editItemsView(BuildContext context, String wishID) {
+    TextEditingController _editingTextInput =
+        new TextEditingController(text: _wishes[wishID]);
+    TextEditingController _editingAmountInput =
+        new TextEditingController(text: _amounts[wishID]);
+
+    Navigator.of(context).push(
+      new MaterialPageRoute(
+        builder: (context) {
+          return new Scaffold(
+            appBar: new AppBar(
+              title: new Text('Edit ' + _wishes[wishID]),
+            ),
+            body: new ListView(
+              children: <Widget>[
+                new Column(children: <Widget>[
+                  new TextField(
+                    controller: _editingTextInput,
+                    decoration: new InputDecoration(
+                      contentPadding:
+                          new EdgeInsets.fromLTRB(16.0, 150.0, 16.0, 16.0),
+                      hintText: 'Enter the item',
+                    ),
+                    keyboardType: TextInputType.text,
+                  ),
+                  new TextField(
+                    controller: _editingAmountInput,
+                    decoration: new InputDecoration(
+                      contentPadding:
+                          new EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 16.0),
+                      hintText: 'Enter the amount',
+                    ),
+                    keyboardType: TextInputType.number,
+                  ),
+                ]),
+                new Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: <Widget>[
+                    new IconButton(
+                        icon: new Icon(Icons.arrow_back),
+                        onPressed: () => Navigator.of(context).pop(false)),
+                    new IconButton(
+                        icon: new Icon(Icons.edit),
+                        onPressed: () {
+                          if (_editingTextInput.text.length > 0) {
+                            updateDescription(
+                                wishID, "description", _editingTextInput.text);
+                            updateDescription(wishID, "amount",
+                                _editingAmountInput.text.toString());
+                            _wishes[wishID] = _editingTextInput.text;
+                            _amounts[wishID] = _editingAmountInput.text;
+
+                            Navigator.of(context).pop(false);
+                          }
+                        }),
+                  ],
+                ),
               ],
             ),
           );
@@ -259,36 +371,34 @@ class _MyHomePageState extends State<MyHomePage> {
 
   //Test method to combine listViews using combining IDs.
   ListView get buildAllItems {
-    _allIDs = [];
-    _allIDs = _savedID + _gottenID;
+    _tempIDs = _savedID + _gottenID;
     return new ListView.builder(
-      itemCount: _allIDs != [] ? _allIDs.length : 0.0,
+      itemCount: _tempIDs != [] ? _tempIDs.length : 0.0,
       padding: new EdgeInsets.symmetric(vertical: 16.0),
       itemBuilder: (BuildContext context, int index) {
-        final wishID = _allIDs[index];
+        var random = new Random();
+        final wishID = _tempIDs[index];
         final wish = _wishes[wishID];
         if (_savedID.contains(wishID)) {
           return new Dismissible(
-            key: new ObjectKey(_wishes[wishID]),
+            key: new ObjectKey(
+                _wishes[wishID] + random.nextInt(10000).toString()),
             onDismissed: (direction) {
-              //updateItemLocation(wishID);
-              updateData(wishID, "checked");
-              Scaffold.of(context).showSnackBar(
-                  new SnackBar(
-                      content: new Text("$wish added to gotten pile")));
+              updateItemLocation(wishID);
+              Scaffold.of(context).showSnackBar(new SnackBar(
+                  content: new Text("$wish added to gotten pile")));
             },
             background: new Container(color: Colors.pink),
             child: buildExpansionTileForWishes(wishID, index),
           );
         } else {
           return new Dismissible(
-            key: new ObjectKey(_wishes[wishID]),
+            key: new ObjectKey(
+                _wishes[wishID] + random.nextInt(10000).toString()),
             onDismissed: (direction) {
-              //updateItemLocation(wishID);
-              updateData(wishID, "wished");
-              Scaffold.of(context).showSnackBar(
-                  new SnackBar(
-                      content: new Text("$wish added to gotten pile")));
+              updateItemLocation(wishID);
+              Scaffold.of(context).showSnackBar(new SnackBar(
+                  content: new Text("$wish added to gotten pile")));
             },
             background: new Container(color: Colors.pink),
             child: buildExpansionTileForWishes(wishID, index),
@@ -298,94 +408,55 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  // Build the wish pile tiles.
-  ListView get buildWishPileItem {
-    return new ListView.builder(
-      itemCount: _savedID != [] ? _savedID.length : 0.0,
-      padding: new EdgeInsets.symmetric(vertical: 16.0),
-      itemBuilder: (BuildContext context, int index) {
-        final wishID = _savedID[index];
-        final wish = _wishes[wishID];
-        return new Dismissible(
-          key: new ObjectKey(_wishes[wishID]),
-          onDismissed: (direction) {
-            String item = _savedID.removeAt(index);
-            _gottenID.add(item);
-            Scaffold.of(context).showSnackBar(
-                new SnackBar(
-                    content: new Text("$wish added to gotten pile")));
-          },
-          background: new Container(color: Colors.pink),
-          child: buildExpansionTileForWishes(wishID, index),
-        );
-      },);
-  }
-
-  // Build the gotten pile tiles.
-  ListView get buildGottenPileItem {
-    return new ListView.builder(
-      itemCount: _gottenID != [] ? _gottenID.length : 0.0,
-      padding: new EdgeInsets.symmetric(vertical: 16.0),
-      itemBuilder: (BuildContext context, int index) {
-        final wishID = _gottenID[index];
-        final wish = _wishes[wishID];
-        return new Dismissible(
-          key: new ObjectKey(_wishes[wishID]),
-          onDismissed: (direction) {
-            String item = _gottenID.removeAt(index);
-            _savedID.add(item);
-            Scaffold.of(context).showSnackBar(
-                new SnackBar(
-                    content: new Text("$wish added to gotten pile")));
-          },
-          background: new Container(color: Colors.pink),
-          child: buildExpansionTileForWishes(wishID, index),
-        );
-      },);
-  }
-
-  // Build the gotten pile tiles.
-//  ListView get buildGottenPileItem {
-//    return new ListView.builder(
-//      itemCount: _gottenNames != [] ? _gottenNames.length : 0.0,
-//      padding: new EdgeInsets.symmetric(vertical: 16.0),
-//      itemBuilder: (BuildContext context, int index) {
-//        final item = _gottenNames[index];
-//        return new Dismissible(
-//          key: new ObjectKey(item),
-//          onDismissed: (direction) {
-//            String item = _gottenNames.removeAt(index);
-//            _savedItems.add(item);
-//            Scaffold.of(context).showSnackBar(
-//                new SnackBar(content: new Text("$item added to wishes pile")));
-//          },
-//          background: new Container(color: Colors.pink),
-//          child: buildExpansionTile(item, index),
-//        );
-//      },);
-//  }
-
   //Generates the tile
-  ExpansionTile buildExpansionTileForWishes(String item, int index) {
-    return new ExpansionTile(
-      backgroundColor: _tileColor,
-      title: new Text(_wishes['$item']),
-      trailing: new Text(_amounts['$item']),
-      children: <Widget>[
-        new Row (
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: <Widget>[
-            new IconButton(icon: new Icon(Icons.edit), onPressed: () {
-              //edit item
-            }),
-            new IconButton(
-                icon: new Icon(Icons.delete), onPressed: () {
-              removeItem('$item');
-            }),
-          ],
-        )
-      ],
-    );
+  ExpansionTile buildExpansionTileForWishes(String wishID, int index) {
+    if (_savedID.contains(wishID)) {
+      return new ExpansionTile(
+        backgroundColor: _tileColor,
+        title: new Text(_wishes['$wishID']),
+        trailing: new Text(_amounts['$wishID']),
+        children: <Widget>[
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              new IconButton(
+                  icon: new Icon(Icons.edit),
+                  onPressed: () {
+                    editItemsView(context, wishID);
+                  }),
+              new IconButton(
+                  icon: new Icon(Icons.delete),
+                  onPressed: () {
+                    removeItem('$wishID');
+                  }),
+            ],
+          )
+        ],
+      );
+    } else {
+      return new ExpansionTile(
+        backgroundColor: _tileColor,
+        title: buildStrikeThroughText(wishID), //new Text(_wishes['$wishID']),
+        trailing: new Text(_amounts['$wishID']),
+        children: <Widget>[
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              new IconButton(
+                  icon: new Icon(Icons.edit),
+                  onPressed: () {
+                    //edit item
+                  }),
+              new IconButton(
+                  icon: new Icon(Icons.delete),
+                  onPressed: () {
+                    removeItem('$wishID');
+                  }),
+            ],
+          )
+        ],
+      );
+    }
   }
 
   //Strike through text builder style.
@@ -409,16 +480,19 @@ class _MyHomePageState extends State<MyHomePage> {
   getDataFromAPI() async {
     String id = "1";
     var httpClient = new HttpClient();
+//    var uri = new Uri.http(
+//        _localhost, '/api/v1/piles/' + id + '/wishes', {'status': 'wished'});
     var uri = new Uri.http(
-        '159.89.107.237:1337', '/api/v1/piles/' + id + '/wishes',
-        {'status': 'wished'});
+        _localhost, '/api/v1/piles/' + id + '/wishes', {'status': 'wished'});
     var request = await httpClient.getUrl(uri);
     var response = await request.close();
-    var responseBody = await response.transform(UTF8.decoder).join();
-    Map data = JSON.decode(responseBody);
+    var responseBody = await response.transform(utf8.decoder).join();
+    Map data = json.decode(responseBody);
     emptyCurrentCache();
     for (int i = 0; i < data['data']['resultCount']; i++) {
-      addItemAPI(id, data['data']['result'][i]['id'].toString(),
+      addItemAPI(
+          id,
+          data['data']['result'][i]['id'].toString(),
           data['data']['result'][i]['wish'],
           data['data']['result'][i]['amount'].toString());
     }
@@ -431,30 +505,4 @@ class _MyHomePageState extends State<MyHomePage> {
     _wishes = {};
     _gottenID = [];
   }
-
-
-//  Future<bool> updateWishStatus(wishID, String method) async {
-//    String id = "1";
-//    String body = JSON.encode(
-//        {
-//          "updateField": "status",
-//          "wishes":
-//          { "id": int.parse(wishID), "status": method}
-//        });
-//    print(body);
-//    var httpClient = new HttpClient();
-//    var request = await httpClient.patch(
-//        '159.89.107.237', 1337, '/api/v1/piles/' + id + '/wishes'
-//    );
-//    request.headers.contentType =
-//    new ContentType("application", "json", charset: "utf-8");
-//    request.write(body);
-//
-//    var response = await request.close();
-//    var responseBody = await response.transform(UTF8.decoder).join();
-//    print(responseBody);
-//
-//    return true;
-//  }
-
 }

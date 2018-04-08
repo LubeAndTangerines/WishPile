@@ -12,7 +12,7 @@ import 'package:path_provider/path_provider.dart';
 void main() => runApp(new MaterialApp(home: new MyApp()));
 
 //WishPile variables
-Map<String, String> _savedWishPiles = {"1": "home", "2": "work", "3": "School"};
+Map<String, String> _savedWishPiles = {};
 String _activeWishPileID = "";
 String _wishPileName = "";
 String _wishPileDescription = "";
@@ -85,7 +85,6 @@ class _MyHomePageState extends State<MyHomePage> {
 
   //Changing wish status wished/checked/archived
   Future<bool> updateData(String wishID, String method) async {
-    print(wishID);
     String body = json.encode({
       "updateField": "status",
       "wishes": [
@@ -209,11 +208,13 @@ class _MyHomePageState extends State<MyHomePage> {
     for (int i = 0; i < _savedWishPiles.keys.length; i++) {
       data = {};
       data['pileID'] = _savedWishPiles.keys.toList()[i];
+      data["name"] = _savedWishPiles[_savedWishPiles.keys.toList()[i]];
       dataParsed.add(data);
     }
     String body = json.encode({
       "data": {"pileAmount": _savedWishPiles.keys.length, "piles": dataParsed}
     });
+    print(body);
     return file.writeAsString(body);
   }
 
@@ -225,6 +226,10 @@ class _MyHomePageState extends State<MyHomePage> {
       try {
         Map data = json.decode(contents);
         _activeWishPileID = data["data"]["piles"][0]["pileID"];
+        for (int i = 0; i < data["data"]["piles"].length; i++) {
+          _savedWishPiles[data["data"]["piles"][i]["pileID"]] =
+          data["data"]["piles"][i]["name"];
+        }
         readDataFromAPI(_activeWishPileID);
         getWishPileName();
         getWishPileDescription();
@@ -242,10 +247,8 @@ class _MyHomePageState extends State<MyHomePage> {
   @override
   Widget build(BuildContext context) {
     if (_reload == 0) {
-      readDataFromAPI(_activeWishPileID);
       _reload++;
       readDataFromPhone();
-      writeDataToPhone();
       getWishPileName();
       getWishPileDescription();
       getWishPileLink();
@@ -284,7 +287,6 @@ class _MyHomePageState extends State<MyHomePage> {
   //Get wished and checked objects
   void readDataFromAPI(String pileID) {
     emptyCurrentCache();
-    print(pileID);
     getWishedDataFromAPI(pileID);
     getCheckedDataFromAPI(pileID);
   }
@@ -456,7 +458,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  //wishPile adding
+  //wishPile adding choice
   void chooseWishPileAddingMethod(context) {
     Navigator.of(context).push(new MaterialPageRoute(builder: (context) {
       return new Scaffold(
@@ -545,6 +547,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             future.then((pileID) {
                               _savedWishPiles[pileID] = _wishPileName.text;
                               _activeWishPileID = pileID;
+                              writeDataToPhone();
                               readDataFromAPI(pileID);
                               getWishPileName();
                               getWishPileDescription();
@@ -612,6 +615,7 @@ class _MyHomePageState extends State<MyHomePage> {
                             future.then((pileID) {
                               _savedWishPiles[pileID] = _wishPileName.text;
                               _activeWishPileID = pileID;
+                              writeDataToPhone();
                               readDataFromAPI(pileID);
                               getWishPileName();
                               getWishPileDescription();
@@ -633,6 +637,12 @@ class _MyHomePageState extends State<MyHomePage> {
   //Test method to combine listViews using combining IDs.
   ListView get buildAllItems {
     _tempIDs = _savedID + _gottenID;
+    if (_tempIDs == []) {
+      return new ListView(
+        padding: new EdgeInsets.symmetric(vertical: 16.0),
+      );
+    }
+
     return new ListView.builder(
       itemCount: _tempIDs != [] ? _tempIDs.length : 0.0,
       padding: new EdgeInsets.symmetric(vertical: 16.0),
@@ -741,20 +751,21 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void emptyCurrentCache() {
-    _allIDs = [];
-    _tempIDs = [];
-    _savedID = [];
-    _amounts = {};
-    _wishes = {};
-    _gottenID = [];
+  void emptyCurrentCache()  async {
+    setState(() {
+      _allIDs = [];
+      _tempIDs = [];
+      _savedID = [];
+      _amounts = {};
+      _wishes = {};
+      _gottenID = [];
+    });
   }
 
   Future<String> getExistingWishPile(
       BuildContext context, String pileID, String method) async {
     var httpClient = new HttpClient();
     var uri = new Uri.http(_localhost, '/api/v1/piles/' + pileID);
-    print(uri);
     var request = await httpClient.getUrl(uri);
     var response = await request.close();
     var responseBody = await response.transform(utf8.decoder).join();
@@ -864,6 +875,7 @@ class _MyHomePageState extends State<MyHomePage> {
         leading: new Icon(Icons.list),
         onTap: () {
           _activeWishPileID = wishPile;
+          emptyCurrentCache();
           readDataFromAPI(wishPile);
           getWishPileName();
           getWishPileDescription();

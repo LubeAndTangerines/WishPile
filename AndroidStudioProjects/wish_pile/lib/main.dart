@@ -55,14 +55,16 @@ class MyHomePage extends StatefulWidget {
   final String title;
 
   @override
-  _MyHomePageState createState() => new _MyHomePageState();
+  MyHomePageState createState() => new MyHomePageState();
 }
 
 //This has content
-class _MyHomePageState extends State<MyHomePage> {
+class MyHomePageState extends State<MyHomePage> {
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
   final GlobalKey<DrawerControllerState> _drawerKey =
       new GlobalKey<DrawerControllerState>();
+  final GlobalKey<RefreshIndicatorState> _refreshIndicatorKey =
+      new GlobalKey<RefreshIndicatorState>();
 
   Color _tileColor = Colors.white;
 
@@ -100,8 +102,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     var response = await request.close();
     var responseBody = await response.transform(utf8.decoder).join();
-
-    return true;
+    Map data = json.decode(responseBody);
+    if (data["status"].toString() == "200") {
+      return true;
+    }
+    return false;
   }
 
   //Editing wish description
@@ -122,17 +127,24 @@ class _MyHomePageState extends State<MyHomePage> {
 
     var response = await request.close();
     var responseBody = await response.transform(utf8.decoder).join();
-
-    return true;
+    Map data = json.decode(responseBody);
+    if (data["status"].toString() == "200") {
+      return true;
+    }
+    return false;
   }
 
   //Removes items with sync
   Future<Null> removeItem(String wishID) async {
     setState(() {
-      if (_savedID.contains(wishID)) _savedID.remove(wishID);
-      if (_gottenID.contains(wishID)) _gottenID.remove(wishID);
-      _allIDs.remove(wishID);
-      updateData(wishID, "archived");
+      final future = updateData(wishID, "archived");
+      future.then((bool) {
+        if (bool) {
+          if (_savedID.contains(wishID)) _savedID.remove(wishID);
+          if (_gottenID.contains(wishID)) _gottenID.remove(wishID);
+          _allIDs.remove(wishID);
+        }
+      });
     });
   }
 
@@ -201,21 +213,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
   //Write data as json to phone
   Future<File> writeDataToPhone() async {
-    final file = await _localFile;
-
-    Map data = new Map();
-    List dataParsed = [];
-    for (int i = 0; i < _savedWishPiles.keys.length; i++) {
-      data = {};
-      data['pileID'] = _savedWishPiles.keys.toList()[i];
-      data["name"] = _savedWishPiles[_savedWishPiles.keys.toList()[i]];
-      dataParsed.add(data);
+    if (_savedWishPiles != {}) {
+      final file = await _localFile;
+      Map data = new Map();
+      List dataParsed = [];
+      for (int i = 0; i < _savedWishPiles.keys.length; i++) {
+        data = {};
+        data['pileID'] = _savedWishPiles.keys.toList()[i];
+        data["name"] = _savedWishPiles[_savedWishPiles.keys.toList()[i]];
+        dataParsed.add(data);
+      }
+      String body = json.encode({
+        "data": {"pileAmount": _savedWishPiles.keys.length, "piles": dataParsed}
+      });
+      return file.writeAsString(body);
     }
-    String body = json.encode({
-      "data": {"pileAmount": _savedWishPiles.keys.length, "piles": dataParsed}
-    });
-    print(body);
-    return file.writeAsString(body);
+    return null;
   }
 
   //Get json if it exists
@@ -228,19 +241,31 @@ class _MyHomePageState extends State<MyHomePage> {
         _activeWishPileID = data["data"]["piles"][0]["pileID"];
         for (int i = 0; i < data["data"]["piles"].length; i++) {
           _savedWishPiles[data["data"]["piles"][i]["pileID"]] =
-          data["data"]["piles"][i]["name"];
+              data["data"]["piles"][i]["name"];
         }
         readDataFromAPI(_activeWishPileID);
         getWishPileName();
         getWishPileDescription();
         getWishPileLink();
       } catch (e) {
+        firstWishPileAddingMethod(context);
         return "";
       }
       return contents;
     } catch (e) {
+      firstWishPileAddingMethod(context);
       return "";
     }
+  }
+
+  Future<Null> _handleRefresh() {
+    final Completer<Null> completer = new Completer<Null>();
+    new Timer(const Duration(seconds: 1), () {
+      completer.complete(null);
+    });
+    return completer.future.then((_) {
+      readDataFromAPI(_activeWishPileID);
+    });
   }
 
   //Main method
@@ -271,7 +296,11 @@ class _MyHomePageState extends State<MyHomePage> {
       ),
 
       //Generate the body
-      body: buildAllItems,
+      body: new RefreshIndicator(
+        key: _refreshIndicatorKey,
+        onRefresh: _handleRefresh,
+        child: buildAllItems,
+      ),
 
       //FAB
       floatingActionButton: new FloatingActionButton(
@@ -438,13 +467,20 @@ class _MyHomePageState extends State<MyHomePage> {
                         icon: new Icon(Icons.edit),
                         onPressed: () {
                           if (_editingTextInput.text.length > 0) {
-                            updateDescription(
+                            final future1 = updateDescription(
                                 wishID, "description", _editingTextInput.text);
-                            updateDescription(wishID, "amount",
+                            future1.then((bool) {
+                              if (bool) {
+                                _wishes[wishID] = _editingTextInput.text;
+                              }
+                            });
+                            final future2 = updateDescription(wishID, "amount",
                                 _editingAmountInput.text.toString());
-                            _wishes[wishID] = _editingTextInput.text;
-                            _amounts[wishID] = _editingAmountInput.text;
-
+                            future2.then((bool) {
+                              if (bool) {
+                                _amounts[wishID] = _editingAmountInput.text;
+                              }
+                            });
                             Navigator.of(context).pop(false);
                           }
                         }),
@@ -458,6 +494,54 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
+  //First view when app is opened
+  void firstWishPileAddingMethod(context) {
+    Navigator.of(context).push(new MaterialPageRoute(builder: (context) {
+      return new Scaffold(
+          body: new Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: <Widget>[
+          new Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              new FlatButton.icon(
+                onPressed: () {
+                  addNewWishPileView(context);
+                },
+                icon: new Icon(
+                  Icons.add,
+                  size: 24.0,
+                ),
+                label: new Text(
+                  "Add a new WishPile",
+                  style: new TextStyle(fontSize: 24.0),
+                ),
+              ),
+            ],
+          ),
+          new Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: <Widget>[
+              new FlatButton.icon(
+                onPressed: () {
+                  addExistingWishPileView(context);
+                },
+                icon: new Icon(
+                  Icons.add_shopping_cart,
+                  size: 24.0,
+                ),
+                label: new Text("Add an exisiting WishPile",
+                    style: new TextStyle(fontSize: 24.0)),
+              ),
+            ],
+          ),
+        ],
+      ));
+    }));
+  }
+
   //wishPile adding choice
   void chooseWishPileAddingMethod(context) {
     Navigator.of(context).push(new MaterialPageRoute(builder: (context) {
@@ -466,8 +550,8 @@ class _MyHomePageState extends State<MyHomePage> {
             title: new Text("Choose WishPile adding method"),
           ),
           body: new Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
               new Row(
                 mainAxisSize: MainAxisSize.min,
@@ -543,7 +627,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         onPressed: () {
                           if (_wishPileName.text.length > 0) {
                             final future = getExistingWishPile(
-                                context, _wishPileName.text, "get");
+                                context, _wishPileName.text.toString(), "get");
                             future.then((pileID) {
                               _savedWishPiles[pileID] = _wishPileName.text;
                               _activeWishPileID = pileID;
@@ -552,7 +636,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               getWishPileName();
                               getWishPileDescription();
                               getWishPileLink();
-                              Navigator.of(context).pop(true);
+                              Navigator.popUntil(
+                                  context, ModalRoute.withName('/'));
                             });
                           }
                         })
@@ -620,7 +705,8 @@ class _MyHomePageState extends State<MyHomePage> {
                               getWishPileName();
                               getWishPileDescription();
                               getWishPileLink();
-                              Navigator.of(context).pop(true);
+                              Navigator.popUntil(
+                                  context, ModalRoute.withName('/'));
                             });
                           }
                         })
@@ -722,9 +808,9 @@ class _MyHomePageState extends State<MyHomePage> {
       Map data = json.decode(responseBody);
       for (int i = 0; i < data['data']['resultCount']; i++) {
         addWishesFromAPI(
-            pileID,
+            pileID.toString(),
             data['data']['result'][i]['id'].toString(),
-            data['data']['result'][i]['wish'],
+            data['data']['result'][i]['wish'].toString(),
             data['data']['result'][i]['amount'].toString(),
             "wished");
       }
@@ -751,7 +837,7 @@ class _MyHomePageState extends State<MyHomePage> {
     }
   }
 
-  void emptyCurrentCache()  async {
+  void emptyCurrentCache() async {
     setState(() {
       _allIDs = [];
       _tempIDs = [];
@@ -764,20 +850,24 @@ class _MyHomePageState extends State<MyHomePage> {
 
   Future<String> getExistingWishPile(
       BuildContext context, String pileID, String method) async {
-    var httpClient = new HttpClient();
-    var uri = new Uri.http(_localhost, '/api/v1/piles/' + pileID);
-    var request = await httpClient.getUrl(uri);
-    var response = await request.close();
-    var responseBody = await response.transform(utf8.decoder).join();
-    Map data = json.decode(responseBody);
-    if (method == "name") {
-      return data["data"]["result"]["name"];
-    } else if (method == "description") {
-      return data["data"]["result"]["description"];
-    } else if (method == "get") {
-      return data["data"]["result"]["id"].toString();
-    } else if (method == "link") {
-      return data["data"]["result"]["link"].toString();
+    if (pileID != "") {
+      var httpClient = new HttpClient();
+      var uri = new Uri.http(_localhost, '/api/v1/piles/' + pileID.toString());
+      var request = await httpClient.getUrl(uri);
+      var response = await request.close();
+      var responseBody = await response.transform(utf8.decoder).join();
+      Map data = json.decode(responseBody);
+      if (data["status"].toString() != "404") {
+        if (method == "name") {
+          return data["data"]["result"]["name"];
+        } else if (method == "description") {
+          return data["data"]["result"]["description"];
+        } else if (method == "get") {
+          return data["data"]["result"]["id"].toString();
+        } else if (method == "link") {
+          return data["data"]["result"]["link"].toString();
+        }
+      }
     }
     return "";
   }

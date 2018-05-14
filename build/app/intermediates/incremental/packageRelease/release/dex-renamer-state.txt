@@ -1,0 +1,4 @@
+#Tue Apr 17 13:23:17 EEST 2018
+base.0=C\:\\Users\\Jaagup\\AndroidStudioProjects\\WishPile\\build\\app\\intermediates\\transforms\\dex\\release\\0
+path.0=classes.dex
+renamed.0=classes.dex

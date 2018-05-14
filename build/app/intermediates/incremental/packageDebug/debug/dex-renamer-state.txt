@@ -1,0 +1,4 @@
+#Mon May 14 18:41:20 EEST 2018
+base.0=C\:\\Users\\Jaagup\\AndroidStudioProjects\\WishPile\\build\\app\\intermediates\\transforms\\dexMerger\\debug\\0
+path.0=classes.dex
+renamed.0=classes.dex

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<items version="2" >
+
+    <item
+        is-multidex="false"
+        jar="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\share\intermediates\intermediate-jars\release\classes.jar"
+        jumboMode="false"
+        min-sdk-version="16"
+        optimize="true"
+        revision="26.0.2"
+        sha1="e8c296877a3daffcb4655a37bfb3c77e9f70af4c">
+        <dex dex="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\app\intermediates\transforms\preDex\release\3.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\shared_preferences\intermediates\intermediate-jars\release\classes.jar"
+        jumboMode="false"
+        min-sdk-version="16"
+        optimize="true"
+        revision="26.0.2"
+        sha1="2f108c53dd30658577c913ca933249f5c1b4b795">
+        <dex dex="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\app\intermediates\transforms\preDex\release\2.jar" />
+    </item>
+    <item
+        is-multidex="false"
+        jar="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\path_provider\intermediates\intermediate-jars\release\classes.jar"
+        jumboMode="false"
+        min-sdk-version="16"
+        optimize="true"
+        revision="26.0.2"
+        sha1="c61001b313e136f96cadd8fb4fcd6c2ec8616461">
+        <dex dex="C:\Users\Jaagup\AndroidStudioProjects\WishPile\build\app\intermediates\transforms\preDex\release\5.jar" />
+    </item>
+
+</items>
